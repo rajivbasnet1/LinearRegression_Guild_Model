@@ -1,10 +1,12 @@
 # FIFA World Cup 2026 — Linear Regression Predictor
 
+![Cover](img/cover.png)
+
 A machine learning project that predicts match outcomes and simulates the entire 2026 FIFA World Cup bracket using **linear regression**. All predictions run in the browser from saved model coefficients — no backend, no database.
 
 > **Model constraint:** `sklearn.linear_model.LinearRegression` only. No classifiers, no logistic regression, no neural networks.
 
-**Live demo:** [Deploy to Vercel — see below](#deployment)
+**Live demo:** [worldcuplinear-hludrozg0-r4j1vs-projects.vercel.app](https://worldcuplinear-hludrozg0-r4j1vs-projects.vercel.app/)
 
 ---
 
