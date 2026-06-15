@@ -72,8 +72,10 @@
 
   /* ── Form controls ───────────────────────────────────────────────────────── */
   .field {
-    @apply w-full bg-surface border border-line rounded px-3 py-2 text-ink text-base
+    @apply w-full border border-line rounded px-3 py-2 text-base
            placeholder-ghost focus:outline-none transition-colors duration-150;
+    color: #cdd2de;
+    background-color: #1c2133;
   }
   .field:focus {
     border-color: oklch(0.55 0.09 78);

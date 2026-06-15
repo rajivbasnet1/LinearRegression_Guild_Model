@@ -86,7 +86,8 @@ function SlotRow({ team, label, groups, onPick, isWin, isOut, takenTeams }) {
       <select
         value={team}
         onChange={e => onPick(e.target.value)}
-        className="bg-transparent text-xs text-ink w-full focus:outline-none min-w-0 truncate"
+        className="bg-transparent text-xs w-full focus:outline-none min-w-0 truncate"
+        style={{ color: '#cdd2de' }}
         title={team || label}
       >
         <option value="">{label || '— pick —'}</option>
