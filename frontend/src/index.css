@@ -1,0 +1,136 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { -webkit-font-smoothing: antialiased; }
+
+  body {
+    background-color: oklch(0.12 0.018 245);
+    color: oklch(0.90 0.008 245);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    /* Subtle alternating-grass pitch stripes — very faint */
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 48px,
+      oklch(0.14 0.025 145 / 0.06) 48px,
+      oklch(0.14 0.025 145 / 0.06) 96px
+    );
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(0.28 0.02 248); border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.35 0.025 248); }
+
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23607080' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 2rem;
+    cursor: pointer;
+  }
+  select option {
+    background-color: oklch(0.19 0.016 248);
+    color: oklch(0.90 0.008 245);
+  }
+}
+
+@layer components {
+  /* ── Buttons ─────────────────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded font-medium text-base
+           bg-amber transition-colors duration-150
+           hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed;
+    color: oklch(0.12 0.018 245);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded font-medium text-sm
+           text-dim border border-line transition-colors duration-150
+           hover:text-ink hover:border-ghost;
+  }
+
+  /* ── Panels ──────────────────────────────────────────────────────────────── */
+  .panel {
+    @apply bg-card border border-line rounded-lg;
+  }
+
+  /* ── Form controls ───────────────────────────────────────────────────────── */
+  .field {
+    @apply w-full bg-surface border border-line rounded px-3 py-2 text-ink text-base
+           placeholder-ghost focus:outline-none transition-colors duration-150;
+  }
+  .field:focus {
+    border-color: oklch(0.55 0.09 78);
+    box-shadow: 0 0 0 1px oklch(0.55 0.09 78 / 0.35);
+  }
+
+  /* ── Tab nav ─────────────────────────────────────────────────────────────── */
+  .tab {
+    @apply px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2
+           border-transparent text-dim transition-colors duration-150 hover:text-ink;
+  }
+  .tab-active {
+    @apply border-amber text-ink;
+  }
+
+  /* ── Bracket match card ──────────────────────────────────────────────────── */
+  .match-card {
+    @apply bg-card border border-line rounded-md overflow-hidden;
+    width: 11.5rem;
+    flex-shrink: 0;
+  }
+
+  .match-slot {
+    @apply flex items-center gap-2 px-2.5 py-2 transition-colors duration-150;
+  }
+
+  .match-slot-winner {
+    border-left: 2px solid oklch(0.52 0.14 145);
+    background-color: oklch(0.17 0.05 145 / 0.6);
+  }
+
+  .match-slot-loser {
+    @apply opacity-30;
+  }
+
+  /* ── WC pitch line accent ────────────────────────────────────────────────── */
+  .pitch-accent {
+    background: linear-gradient(90deg,
+      oklch(0.52 0.14 145 / 0),
+      oklch(0.52 0.14 145 / 0.5) 50%,
+      oklch(0.52 0.14 145 / 0)
+    );
+    height: 1px;
+  }
+
+  /* ── Probability bar ─────────────────────────────────────────────────────── */
+  .prob-bar-track {
+    @apply flex-1 rounded-full overflow-hidden;
+    background-color: oklch(0.20 0.018 248);
+    height: 5px;
+  }
+
+  .prob-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

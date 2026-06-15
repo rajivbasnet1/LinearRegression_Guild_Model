@@ -1,0 +1,12 @@
+# Large data file — download separately (see README)
+data/results.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+
+# macOS
+.DS_Store

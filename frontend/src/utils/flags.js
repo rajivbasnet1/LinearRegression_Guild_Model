@@ -1,0 +1,67 @@
+// Flag emoji for every 2026 World Cup team
+export const FLAGS = {
+  // Group A
+  'Mexico':                    '🇲🇽',
+  'South Africa':              '🇿🇦',
+  'South Korea':               '🇰🇷',
+  'Czechia':                   '🇨🇿',
+  // Group B
+  'Canada':                    '🇨🇦',
+  'Bosnia and Herzegovina':    '🇧🇦',
+  'Qatar':                     '🇶🇦',
+  'Switzerland':               '🇨🇭',
+  // Group C
+  'Brazil':                    '🇧🇷',
+  'Morocco':                   '🇲🇦',
+  'Haiti':                     '🇭🇹',
+  'Scotland':                  '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  // Group D
+  'United States':             '🇺🇸',
+  'Paraguay':                  '🇵🇾',
+  'Australia':                 '🇦🇺',
+  'Turkey':                    '🇹🇷',
+  // Group E
+  'Germany':                   '🇩🇪',
+  'Curacao':                   '🇨🇼',
+  'Ivory Coast':               '🇨🇮',
+  'Ecuador':                   '🇪🇨',
+  // Group F
+  'Netherlands':               '🇳🇱',
+  'Japan':                     '🇯🇵',
+  'Sweden':                    '🇸🇪',
+  'Tunisia':                   '🇹🇳',
+  // Group G
+  'Belgium':                   '🇧🇪',
+  'Egypt':                     '🇪🇬',
+  'Iran':                      '🇮🇷',
+  'New Zealand':               '🇳🇿',
+  // Group H
+  'Spain':                     '🇪🇸',
+  'Cape Verde':                '🇨🇻',
+  'Saudi Arabia':              '🇸🇦',
+  'Uruguay':                   '🇺🇾',
+  // Group I
+  'France':                    '🇫🇷',
+  'Senegal':                   '🇸🇳',
+  'Iraq':                      '🇮🇶',
+  'Norway':                    '🇳🇴',
+  // Group J
+  'Argentina':                 '🇦🇷',
+  'Algeria':                   '🇩🇿',
+  'Austria':                   '🇦🇹',
+  'Jordan':                    '🇯🇴',
+  // Group K
+  'Portugal':                  '🇵🇹',
+  'DR Congo':                  '🇨🇩',
+  'Uzbekistan':                '🇺🇿',
+  'Colombia':                  '🇨🇴',
+  // Group L
+  'England':                   '🇬🇧',
+  'Croatia':                   '🇭🇷',
+  'Ghana':                     '🇬🇭',
+  'Panama':                    '🇵🇦',
+};
+
+export function flag(team) {
+  return FLAGS[team] || '🏳';
+}
