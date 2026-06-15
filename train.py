@@ -88,6 +88,11 @@ df = df.sort_values("date").reset_index(drop=True)   # chronological order
 before = len(df)
 df = df.dropna(subset=["home_score", "away_score"]).reset_index(drop=True)
 print(f"    Rows: {len(df):,}  (dropped {before - len(df):,} with missing scores)")
+
+# Drop pre-2000 matches — modern football is structurally different
+before_cut = len(df)
+df = df[df['date'].dt.year >= 2000].reset_index(drop=True)
+print(f"    Post-2000 cutoff: {len(df):,} rows kept  (dropped {before_cut - len(df):,} pre-2000)")
 print(f"    Date range: {df['date'].min().date()} → {df['date'].max().date()}")
 print(f"    Columns: {list(df.columns)}")
 print(f"    Unique teams: {pd.unique(df[['home_team','away_team']].values.ravel()).shape[0]}")
