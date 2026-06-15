@@ -112,8 +112,8 @@ print("    (Using only past matches for each team — no data leakage)")
 
 def rolling_stats(history: list, window: int = WINDOW) -> dict:
     """
-    Compute rolling stats over the last `window` competitive matches.
-    Last 3 matches are weighted double to emphasise recent form.
+    Compute rolling stats over the last `window` matches.
+    Last 3 matches count double. Friendlies count 0.25x to reduce their influence.
     Returns NaN dict if fewer than `window` past matches exist.
     """
     recent = history[-window:]
@@ -122,9 +122,17 @@ def rolling_stats(history: list, window: int = WINDOW) -> dict:
     if n < window:
         return dict(form=np.nan, scored=np.nan, conceded=np.nan, strength=np.nan)
 
-    # Last 3 matches count double — recency matters more than old results
-    weights = [1.0] * (window - 3) + [2.0, 2.0, 2.0]
-    total_w = sum(weights)   # = 7*1 + 3*2 = 13.0
+    # Last 3 matches count double, friendlies are down-weighted to 0.25x
+    weights = []
+    for i, m in enumerate(recent):
+        w = 2.0 if i >= (n - 3) else 1.0
+        if m.get("is_friendly", False):
+            w *= 0.25
+        weights.append(w)
+        
+    total_w = sum(weights)
+    if total_w == 0:
+        return dict(form=np.nan, scored=np.nan, conceded=np.nan, strength=np.nan)
 
     form     = sum(m["won"]                    * w for m, w in zip(recent, weights)) / total_w
     scored   = sum(m["scored"]                 * w for m, w in zip(recent, weights)) / total_w
@@ -162,50 +170,51 @@ for idx, match in df.iterrows():
 
     is_friendly = 'friendly' in str(match["tournament"]).lower()
 
-    # ── Compute stats BEFORE this match (using only past competitive history) ──
+    # ── Compute stats BEFORE this match (using past history with downweighted friendlies) ──
     home_stats = rolling_stats(team_history[home])
     away_stats = rolling_stats(team_history[away])
 
-    if not is_friendly:
-        # ── Feature vector: difference (home − away) for each stat ────────────────
-        #  A positive feature_diff means the home team has an edge on that stat.
-        rows.append({
-            "date"           : match["date"],
-            "home_team"      : home,
-            "away_team"      : away,
+    # ── Feature vector: difference (home − away) for each stat ────────────────
+    #  A positive feature_diff means the home team has an edge on that stat.
+    rows.append({
+        "date"           : match["date"],
+        "home_team"      : home,
+        "away_team"      : away,
 
-            # Features
-            "form_diff"      : home_stats["form"]     - away_stats["form"],
-            "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
-            "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
-            "strength_diff"  : home_stats["strength"] - away_stats["strength"],
-            "elo_diff"          : home_elo - away_elo,
-            "market_value_diff" : market_value_lookup.get(home, 0.0) - market_value_lookup.get(away, 0.0),
-            # neutral = 1 means the match is played on neutral ground (no home advantage)
-            "neutral"           : int(match["neutral"]),
+        # Features
+        "form_diff"      : home_stats["form"]     - away_stats["form"],
+        "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
+        "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
+        "strength_diff"  : home_stats["strength"] - away_stats["strength"],
+        "elo_diff"          : home_elo - away_elo,
+        "market_value_diff" : market_value_lookup.get(home, 0.0) - market_value_lookup.get(away, 0.0),
+        # neutral = 1 means the match is played on neutral ground (no home advantage)
+        "neutral"           : int(match["neutral"]),
 
-            # Target: goal difference (what we predict)
-            "goal_diff"      : int(match["home_score"]) - int(match["away_score"]),
+        # Target: goal difference (what we predict)
+        "goal_diff"      : int(match["home_score"]) - int(match["away_score"]),
 
-            # Keep raw scores for reference
-            "home_score"     : match["home_score"],
-            "away_score"     : match["away_score"],
-        })
+        # Keep raw scores for reference
+        "home_score"     : match["home_score"],
+        "away_score"     : match["away_score"],
+    })
 
-        # ── NOW update history with this match result ──────────────────────────────
-        #  We update AFTER computing features — this is the leakage guard.
-        home_result = dict(
-            scored   = match["home_score"],
-            conceded = match["away_score"],
-            won      = 1 if match["home_score"] > match["away_score"] else 0,
-        )
-        away_result = dict(
-            scored   = match["away_score"],
-            conceded = match["home_score"],
-            won      = 1 if match["away_score"] > match["home_score"] else 0,
-        )
-        team_history[home].append(home_result)
-        team_history[away].append(away_result)
+    # ── NOW update history with this match result ──────────────────────────────
+    #  We update AFTER computing features — this is the leakage guard.
+    home_result = dict(
+        scored   = match["home_score"],
+        conceded = match["away_score"],
+        won      = 1 if match["home_score"] > match["away_score"] else 0,
+        is_friendly = is_friendly,
+    )
+    away_result = dict(
+        scored   = match["away_score"],
+        conceded = match["home_score"],
+        won      = 1 if match["away_score"] > match["home_score"] else 0,
+        is_friendly = is_friendly,
+    )
+    team_history[home].append(home_result)
+    team_history[away].append(away_result)
 
     # Update ELOs AFTER recording features (leakage guard) - runs for ALL matches
     k = _k_factor(match["tournament"])
@@ -213,6 +222,7 @@ for idx, match in df.iterrows():
         home_elo, away_elo,
         match["home_score"], match["away_score"], k
     )
+
 
 
 features_df = pd.DataFrame(rows)
