@@ -23,7 +23,7 @@ export default function MatchPredictor({ model }) {
   const contributions  = goalDiff !== null && homeTeam !== awayTeam
     ? explainPrediction(homeTeam, awayTeam, isNeutral, model)
     : [];
-  const residualStd = model.metrics.residual_std ?? null;
+  const residualStd = model.metrics?.residual_std ?? null;
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
