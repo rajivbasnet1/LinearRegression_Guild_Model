@@ -49,7 +49,7 @@ ELO_DEFAULT = 1500.0   # starting ELO for every team
 def _k_factor(tournament: str) -> float:
     t = tournament.lower()
     majors = ['fifa world cup', 'uefa european', 'copa america',
-              'africa cup', 'afc asian cup']
+              'africa cup of nations', 'afc asian cup']
     if any(m in t for m in majors):
         return 60.0
     if 'qualif' in t:
@@ -305,7 +305,7 @@ mae  = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(np.mean((y_pred - y_test) ** 2))
 
 residuals     = y_test - y_pred
-residual_std  = float(np.std(residuals))
+residual_std  = float(np.std(residuals))   # population std (ddof=0); n=9k+, negligible vs sample std
 
 # Directional accuracy: does sign(pred) == sign(actual)?
 # Draws (goal_diff == 0) are counted as correct only if pred ≈ 0 too.
@@ -318,6 +318,7 @@ print(f"\n[1] Test-set metrics (n={len(y_test):,} matches, {test_df['date'].min(
 print(f"    MAE               : {mae:.4f} goals")
 print(f"    RMSE              : {rmse:.4f} goals")
 print(f"    Directional acc   : {dir_acc:.4f}  ({dir_acc*100:.1f}%)")
+print(f"    Residual std      : {residual_std:.4f} goals  (used as simulation noise)")
 print(f"    (Note: draws counted correct only if prediction is also a draw)")
 
 # ── Coefficients — interpret which features matter most ─────────────────────────
