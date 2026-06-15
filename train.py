@@ -112,29 +112,24 @@ print("    (Using only past matches for each team — no data leakage)")
 
 def rolling_stats(history: list, window: int = WINDOW) -> dict:
     """
-    Given a list of past match results for a team, compute rolling stats
-    over the last `window` matches.
-
-    Each entry in history is a dict with:
-        scored    - goals scored by this team in that match
-        conceded  - goals conceded by this team
-        won       - 1 if won, 0 if draw/loss
-
-    Returns form (win rate), avg scored, avg conceded, avg strength (goal diff).
-    Returns None if fewer than `window` past matches exist (warm-up period).
+    Compute rolling stats over the last `window` competitive matches.
+    Last 3 matches are weighted double to emphasise recent form.
+    Returns NaN dict if fewer than `window` past matches exist.
     """
-    recent = history[-window:]          # last N matches (already sorted by date)
+    recent = history[-window:]
     n      = len(recent)
 
     if n < window:
-        # Not enough history — return NaN signals; will be dropped later
         return dict(form=np.nan, scored=np.nan, conceded=np.nan, strength=np.nan)
 
-    form      = sum(m["won"]      for m in recent) / n   # win rate 0..1
-    scored    = sum(m["scored"]   for m in recent) / n   # avg goals scored
-    conceded  = sum(m["conceded"] for m in recent) / n   # avg goals conceded
-    # Strength = mean goal difference — positive means net attacking edge
-    strength  = sum(m["scored"] - m["conceded"] for m in recent) / n
+    # Last 3 matches count double — recency matters more than old results
+    weights = [1.0] * (window - 3) + [2.0, 2.0, 2.0]
+    total_w = sum(weights)   # = 7*1 + 3*2 = 13.0
+
+    form     = sum(m["won"]                    * w for m, w in zip(recent, weights)) / total_w
+    scored   = sum(m["scored"]                 * w for m, w in zip(recent, weights)) / total_w
+    conceded = sum(m["conceded"]               * w for m, w in zip(recent, weights)) / total_w
+    strength = sum((m["scored"]-m["conceded"]) * w for m, w in zip(recent, weights)) / total_w
 
     return dict(form=form, scored=scored, conceded=conceded, strength=strength)
 
