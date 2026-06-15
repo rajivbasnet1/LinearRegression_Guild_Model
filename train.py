@@ -44,6 +44,26 @@ ARTIFACTS.mkdir(exist_ok=True)
 WINDOW      = 10       # rolling window: last N matches for stats
 TRAIN_FRAC  = 0.80     # first 80% by date = train, last 20% = test
 
+ELO_DEFAULT = 1500.0   # starting ELO for every team
+
+def _k_factor(tournament: str) -> float:
+    t = tournament.lower()
+    majors = ['fifa world cup', 'uefa european', 'copa america',
+              'africa cup', 'afc asian cup']
+    if any(m in t for m in majors):
+        return 60.0
+    if 'qualif' in t:
+        return 40.0
+    return 20.0
+
+def _elo_update(home_elo: float, away_elo: float,
+                home_goals: float, away_goals: float, k: float):
+    expected = 1.0 / (1.0 + 10.0 ** ((away_elo - home_elo) / 400.0))
+    actual   = 1.0 if home_goals > away_goals else \
+               0.5 if home_goals == away_goals else 0.0
+    return (home_elo + k * (actual - expected),
+            away_elo + k * (expected - actual))
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  PHASE 1 — Feature engineering
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -109,6 +129,7 @@ def rolling_stats(history: list, window: int = WINDOW) -> dict:
 
 # Accumulate features row by row; maintain mutable history per team
 team_history: dict[str, list] = {}   # team_name -> list of past match records
+elo_ratings:  dict[str, float] = {}  # team_name -> current ELO (updated after each match)
 
 rows = []   # will become the feature DataFrame
 
@@ -121,6 +142,16 @@ for idx, match in df.iterrows():
         team_history[home] = []
     if away not in team_history:
         team_history[away] = []
+
+    # Initialise ELO for new teams
+    if home not in elo_ratings:
+        elo_ratings[home] = ELO_DEFAULT
+    if away not in elo_ratings:
+        elo_ratings[away] = ELO_DEFAULT
+
+    # Capture ELO BEFORE this match (no leakage)
+    home_elo = elo_ratings[home]
+    away_elo = elo_ratings[away]
 
     # ── Compute stats BEFORE this match (using only past history) ──────────────
     home_stats = rolling_stats(team_history[home])
@@ -138,6 +169,7 @@ for idx, match in df.iterrows():
         "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
         "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
         "strength_diff"  : home_stats["strength"] - away_stats["strength"],
+        "elo_diff"       : home_elo - away_elo,
         # neutral = 1 means the match is played on neutral ground (no home advantage)
         "neutral"        : int(match["neutral"]),
 
@@ -164,11 +196,18 @@ for idx, match in df.iterrows():
     team_history[home].append(home_result)
     team_history[away].append(away_result)
 
+    # Update ELOs AFTER recording features (leakage guard)
+    k = _k_factor(match["tournament"])
+    elo_ratings[home], elo_ratings[away] = _elo_update(
+        home_elo, away_elo,
+        match["home_score"], match["away_score"], k
+    )
+
 
 features_df = pd.DataFrame(rows)
 
 # ── 3. Drop warm-up rows (teams without enough history yet) ────────────────────
-feature_cols = ["form_diff", "scored_diff", "conceded_diff", "strength_diff", "neutral"]
+feature_cols = ["form_diff", "scored_diff", "conceded_diff", "strength_diff", "elo_diff", "neutral"]
 before_drop = len(features_df)
 features_df = features_df.dropna(subset=feature_cols).reset_index(drop=True)
 dropped = before_drop - len(features_df)
@@ -217,8 +256,9 @@ print(f"\n    Full feature table saved → {preview_path}")
 #
 team_snapshots = {}
 for team, history in team_history.items():
-    snap = rolling_stats(history)   # stats from last WINDOW matches overall
+    snap = rolling_stats(history)
     if not any(np.isnan(v) for v in snap.values()):
+        snap["elo"] = round(elo_ratings.get(team, ELO_DEFAULT), 1)
         team_snapshots[team] = snap
 
 print(f"\n    Team snapshots built: {len(team_snapshots)} teams with ≥ {WINDOW} matches of history")
@@ -263,6 +303,9 @@ y_pred = model.predict(X_test_s)
 
 mae  = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(np.mean((y_pred - y_test) ** 2))
+
+residuals     = y_test - y_pred
+residual_std  = float(np.std(residuals))
 
 # Directional accuracy: does sign(pred) == sign(actual)?
 # Draws (goal_diff == 0) are counted as correct only if pred ≈ 0 too.
@@ -310,10 +353,11 @@ model_data = {
     },
     "teams"     : team_snapshots,
     "metrics"   : {
-        "mae"                 : round(mae, 4),
-        "rmse"                : round(rmse, 4),
-        "directional_accuracy": round(dir_acc, 4),
-        "test_n"              : int(len(y_test)),
+        "mae"                  : round(mae, 4),
+        "rmse"                 : round(rmse, 4),
+        "directional_accuracy" : round(dir_acc, 4),
+        "residual_std"         : round(residual_std, 4),
+        "test_n"               : int(len(y_test)),
     },
     "test_points": test_points,
 }
