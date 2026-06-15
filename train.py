@@ -197,6 +197,7 @@ for idx, match in df.iterrows():
         # Keep raw scores for reference
         "home_score"     : match["home_score"],
         "away_score"     : match["away_score"],
+        "is_friendly"    : is_friendly,
     })
 
     # ── NOW update history with this match result ──────────────────────────────
@@ -248,6 +249,9 @@ test_mask  = ~train_mask
 
 train_df = features_df[train_mask].copy()
 test_df  = features_df[test_mask].copy()
+
+# Evaluate test-set metrics on competitive matches only (what we care about predicting)
+test_df = test_df[~test_df['is_friendly']].reset_index(drop=True)
 
 print(f"\n[3] Chronological split at {split_date.date()}")
 print(f"    Train: {len(train_df):,} rows  ({train_df['date'].min().date()} → {train_df['date'].max().date()})")
