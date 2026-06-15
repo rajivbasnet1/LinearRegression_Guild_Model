@@ -10,3 +10,9 @@ env/
 
 # macOS
 .DS_Store
+
+# Node
+frontend/node_modules/
+node_modules/
+package-lock.json
+frontend/package-lock.json
