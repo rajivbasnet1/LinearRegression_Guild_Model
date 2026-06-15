@@ -199,6 +199,22 @@ export default function MatchPredictor({ model }) {
                   </tr>
                 );
               })}
+              {/* Market value row */}
+              {(() => {
+                const h    = model.teams[homeTeam]?.market_value ?? 0;
+                const a    = model.teams[awayTeam]?.market_value ?? 0;
+                const diff = h - a;
+                return (
+                  <tr key="market_value" className="border-b border-line last:border-0">
+                    <td className="px-4 py-2.5 text-dim">Market Value</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-ink">€{h.toFixed(0)}M</td>
+                    <td className="px-4 py-2.5 text-right font-mono text-ink">€{a.toFixed(0)}M</td>
+                    <td className={`px-4 py-2.5 text-right font-mono ${diff > 0 ? 'text-win' : diff < 0 ? 'text-out' : 'text-ghost'}`}>
+                      {diff >= 0 ? '+' : ''}€{diff.toFixed(0)}M
+                    </td>
+                  </tr>
+                );
+              })()}
             </tbody>
           </table>
         </div>

@@ -1,4 +1,40 @@
 import { useState, useCallback, useMemo } from 'react';
+
+const CONFETTI_COLORS = [
+  'oklch(0.78 0.20 50)', 'oklch(0.72 0.18 145)', 'oklch(0.72 0.18 250)',
+  'oklch(0.78 0.20 320)', 'oklch(0.88 0.18 78)', 'oklch(0.75 0.16 180)',
+];
+
+function Confetti() {
+  const pieces = useMemo(() =>
+    Array.from({ length: 38 }, (_, i) => ({
+      id: i,
+      left:     `${Math.random() * 100}%`,
+      delay:    `${Math.random() * 1.4}s`,
+      duration: `${0.9 + Math.random() * 1.0}s`,
+      color:    CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      size:     `${4 + Math.random() * 5}px`,
+      circle:   Math.random() > 0.45,
+    })), []
+  );
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {pieces.map(p => (
+        <div key={p.id} style={{
+          position:     'absolute',
+          left:         p.left,
+          top:          '-8px',
+          width:        p.size,
+          height:       p.size,
+          background:   p.color,
+          borderRadius: p.circle ? '50%' : '2px',
+          animation:    `confetti-fall ${p.duration} ${p.delay} ease-in forwards`,
+        }} />
+      ))}
+    </div>
+  );
+}
 import { predictGoalDiff } from '../utils/model.js';
 import { flag } from '../utils/flags.js';
 
@@ -177,9 +213,9 @@ function AdvanceCard({ matchId, getWinner, model }) {
 function Col({ label, children, center }) {
   return (
     <div className="flex flex-col flex-shrink-0">
-      <p className="text-2xs text-ghost font-medium uppercase tracking-wider text-center mb-2 px-1">
+      <div className="text-2xs text-ghost font-medium uppercase tracking-wider text-center mb-2 px-1">
         {label}
-      </p>
+      </div>
       <div className={`flex flex-col flex-1 gap-3 ${center ? 'justify-center' : 'justify-around'}`}>
         {children}
       </div>
@@ -224,6 +260,13 @@ export default function CustomBracket({ model }) {
   function reset() { setPicks({}); }
 
   const champion = getWinner('final');
+
+  const finalLabel = (
+    <span className="inline-flex items-center justify-center gap-1">
+      <img src="/world_cup_main.png" alt="" className="w-3.5 h-3.5 rounded-full object-cover inline-block" />
+      Final
+    </span>
+  );
 
   // Helpers for columns
   const AdvCol = ({ label, ids, center }) => (
@@ -298,10 +341,14 @@ export default function CustomBracket({ model }) {
 
       {/* Champion banner */}
       {champion && (
-        <div className="panel px-5 py-4 flex items-center gap-4"
+        <div className="relative panel px-5 py-4 flex items-center gap-4 overflow-hidden"
              style={{ borderColor:'oklch(0.55 0.09 78 / 0.4)', background:'oklch(0.16 0.03 78 / 0.3)' }}>
-          <span className="text-4xl">{flag(champion)}</span>
-          <div>
+          <Confetti />
+          <img src="/world_cup_main.png" alt="World Cup 2026"
+               className="relative flex-shrink-0 w-12 h-12 rounded-full object-cover"
+               style={{ boxShadow:'0 0 0 2px oklch(0.55 0.09 78 / 0.5)' }} />
+          <span className="relative text-4xl">{flag(champion)}</span>
+          <div className="relative">
             <p className="text-2xs text-ghost uppercase tracking-wider mb-0.5">🏆 Predicted Champion</p>
             <p className="text-2xl font-bold text-ink">{champion}</p>
           </div>
@@ -316,7 +363,7 @@ export default function CustomBracket({ model }) {
             <AdvCol label="Round of 16"   ids={['r16_0','r16_1','r16_2','r16_3']} />
             <AdvCol label="Quarterfinals" ids={['qf_0','qf_1']} />
             <AdvCol label="Semifinal"     ids={['sf_0']} center />
-            <AdvCol label="⚽ Final"      ids={['final']} center />
+            <AdvCol label={finalLabel}      ids={['final']} center />
             <AdvCol label="Semifinal"     ids={['sf_1']} center />
             <AdvCol label="Quarterfinals" ids={['qf_2','qf_3']} />
             <AdvCol label="Round of 16"   ids={['r16_4','r16_5','r16_6','r16_7']} />
@@ -327,7 +374,7 @@ export default function CustomBracket({ model }) {
             <FreeCol label="Round of 16"   ids={['r16_0','r16_1','r16_2','r16_3']} />
             <AdvCol  label="Quarterfinals" ids={['qf_0','qf_1']} />
             <AdvCol  label="Semifinal"     ids={['sf_0']} center />
-            <AdvCol  label="⚽ Final"      ids={['final']} center />
+            <AdvCol  label={finalLabel}      ids={['final']} center />
             <AdvCol  label="Semifinal"     ids={['sf_1']} center />
             <AdvCol  label="Quarterfinals" ids={['qf_2','qf_3']} />
             <FreeCol label="Round of 16"   ids={['r16_4','r16_5','r16_6','r16_7']} />
@@ -336,14 +383,14 @@ export default function CustomBracket({ model }) {
           {startRound === 'qf' && <>
             <FreeCol label="Quarterfinals" ids={['qf_0','qf_1']} />
             <AdvCol  label="Semifinal"     ids={['sf_0']} center />
-            <AdvCol  label="⚽ Final"      ids={['final']} center />
+            <AdvCol  label={finalLabel}      ids={['final']} center />
             <AdvCol  label="Semifinal"     ids={['sf_1']} center />
             <FreeCol label="Quarterfinals" ids={['qf_2','qf_3']} />
           </>}
 
           {startRound === 'sf' && <>
             <FreeCol label="Semifinals" ids={['sf_0','sf_1']} />
-            <AdvCol  label="⚽ Final"   ids={['final']} center />
+            <AdvCol  label={finalLabel}   ids={['final']} center />
           </>}
         </div>
       </div>

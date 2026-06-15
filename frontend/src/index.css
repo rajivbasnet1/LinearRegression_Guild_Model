@@ -135,6 +135,12 @@
   }
 }
 
+@keyframes confetti-fall {
+  0%   { transform: translateY(-8px) rotate(0deg);   opacity: 1; }
+  80%  { opacity: 0.8; }
+  100% { transform: translateY(130px) rotate(540deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

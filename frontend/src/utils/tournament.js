@@ -33,9 +33,8 @@ export const GROUPS_2026 = {
   L: ['England',      'Croatia',                'Ghana',       'Panama'],
 };
 
-// Noise standard deviation = model RMSE (~1.98 goals).
-// Adding this noise to each prediction gives realistic upset probability.
-const NOISE_STD = 1.98;
+// Fallback noise sigma if model.metrics.residual_std is unavailable.
+const NOISE_STD_FALLBACK = 1.98;
 
 /**
  * Simulate a single match and return the winning team.
@@ -50,8 +49,9 @@ const NOISE_STD = 1.98;
  */
 function simulateMatch(teamA, teamB, model, mustDecide = false) {
   // Predict goal diff and add Gaussian noise to model uncertainty / upsets
-  const rawPred  = predictGoalDiff(teamA, teamB, true, model);
-  const noisyDiff = rawPred + gaussianRandom(0, NOISE_STD);
+  const noiseSigma = model.metrics?.residual_std ?? NOISE_STD_FALLBACK;
+  const rawPred    = predictGoalDiff(teamA, teamB, true, model);
+  const noisyDiff  = rawPred + gaussianRandom(0, noiseSigma);
 
   if (mustDecide && Math.abs(noisyDiff) < 0.05) {
     // Very close — flip a coin (penalty shootout)

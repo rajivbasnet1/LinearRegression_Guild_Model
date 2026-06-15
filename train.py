@@ -22,8 +22,9 @@ from pathlib import Path
 REPO_ROOT  = Path(__file__).parent
 DATA_PATH  = REPO_ROOT / "data" / "results.csv"
 ARTIFACTS  = REPO_ROOT / "artifacts"
-MODEL_PATH         = REPO_ROOT / "model.json"
-FRONTEND_MODEL_PATH = REPO_ROOT / "frontend" / "public" / "model.json"
+MODEL_PATH             = REPO_ROOT / "model.json"
+FRONTEND_MODEL_PATH    = REPO_ROOT / "frontend" / "public" / "model.json"
+MARKET_VALUES_PATH     = REPO_ROOT / "data" / "market_values.csv"
 
 # ── Guard: stop if data is missing ─────────────────────────────────────────────
 if not DATA_PATH.exists():
@@ -39,6 +40,12 @@ if not DATA_PATH.exists():
     sys.exit(1)
 
 ARTIFACTS.mkdir(exist_ok=True)
+
+# ── Load market values (static per team, from Transfermarkt) ───────────────────
+market_value_lookup: dict[str, float] = {}
+if MARKET_VALUES_PATH.exists():
+    mv_df = pd.read_csv(MARKET_VALUES_PATH)
+    market_value_lookup = dict(zip(mv_df['team'], mv_df['market_value_million_eur']))
 
 # ── Constants ───────────────────────────────────────────────────────────────────
 WINDOW      = 10       # rolling window: last N matches for stats
@@ -169,9 +176,10 @@ for idx, match in df.iterrows():
         "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
         "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
         "strength_diff"  : home_stats["strength"] - away_stats["strength"],
-        "elo_diff"       : home_elo - away_elo,
+        "elo_diff"          : home_elo - away_elo,
+        "market_value_diff" : market_value_lookup.get(home, 0.0) - market_value_lookup.get(away, 0.0),
         # neutral = 1 means the match is played on neutral ground (no home advantage)
-        "neutral"        : int(match["neutral"]),
+        "neutral"           : int(match["neutral"]),
 
         # Target: goal difference (what we predict)
         "goal_diff"      : int(match["home_score"]) - int(match["away_score"]),
@@ -207,7 +215,7 @@ for idx, match in df.iterrows():
 features_df = pd.DataFrame(rows)
 
 # ── 3. Drop warm-up rows (teams without enough history yet) ────────────────────
-feature_cols = ["form_diff", "scored_diff", "conceded_diff", "strength_diff", "elo_diff", "neutral"]
+feature_cols = ["form_diff", "scored_diff", "conceded_diff", "strength_diff", "elo_diff", "market_value_diff", "neutral"]
 before_drop = len(features_df)
 features_df = features_df.dropna(subset=feature_cols).reset_index(drop=True)
 dropped = before_drop - len(features_df)
@@ -258,7 +266,8 @@ team_snapshots = {}
 for team, history in team_history.items():
     snap = rolling_stats(history)
     if not any(np.isnan(v) for v in snap.values()):
-        snap["elo"] = round(elo_ratings.get(team, ELO_DEFAULT), 1)
+        snap["elo"]          = round(elo_ratings.get(team, ELO_DEFAULT), 1)
+        snap["market_value"] = market_value_lookup.get(team, 0.0)
         team_snapshots[team] = snap
 
 print(f"\n    Team snapshots built: {len(team_snapshots)} teams with ≥ {WINDOW} matches of history")

@@ -61,10 +61,11 @@ export default function App() {
         </div>
         <div className="relative max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                 style={{ background: 'oklch(0.19 0.05 145 / 0.5)', border: '1px solid oklch(0.35 0.09 145 / 0.4)' }}>
-              ⚽
-            </div>
+            <img
+              src="/world_cup_main.png"
+              alt="FIFA World Cup 2026"
+              className="flex-shrink-0 w-10 h-10 rounded-full object-cover"
+            />
             <div>
               <p className="text-ink font-semibold text-md leading-tight">FIFA World Cup 2026</p>
               <p className="text-ghost text-xs">Linear Regression Predictor · USA · Canada · Mexico</p>

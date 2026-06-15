@@ -28,17 +28,20 @@ export function predictGoalDiff(homeTeam, awayTeam, isNeutral, model) {
   const home = model.teams[homeTeam] || DEFAULT_STATS;
   const away = model.teams[awayTeam] || DEFAULT_STATS;
 
-  const homeElo = (model.teams[homeTeam] || {}).elo ?? 1500;
-  const awayElo = (model.teams[awayTeam] || {}).elo ?? 1500;
+  const homeElo = (model.teams[homeTeam] || {}).elo          ?? 1500;
+  const awayElo = (model.teams[awayTeam] || {}).elo          ?? 1500;
+  const homeMV  = (model.teams[homeTeam] || {}).market_value ?? 0;
+  const awayMV  = (model.teams[awayTeam] || {}).market_value ?? 0;
 
-  // Raw feature vector: difference between home and away team stats
-  // Order matches training: [form_diff, scored_diff, conceded_diff, strength_diff, elo_diff, neutral]
+  // Raw feature vector — order MUST match training feature_cols exactly:
+  // [form_diff, scored_diff, conceded_diff, strength_diff, elo_diff, market_value_diff, neutral]
   const raw = [
     home.form     - away.form,       // form_diff
     home.scored   - away.scored,     // scored_diff
     home.conceded - away.conceded,   // conceded_diff
     home.strength - away.strength,   // strength_diff
     homeElo       - awayElo,         // elo_diff
+    homeMV        - awayMV,          // market_value_diff
     isNeutral ? 1 : 0,               // neutral
   ];
 
@@ -83,12 +86,13 @@ export function gaussianRandom(mean = 0, std = 1) {
 }
 
 const FEATURE_LABELS = {
-  form_diff:     'Recent Form',
-  scored_diff:   'Goals Scored',
-  conceded_diff: 'Goals Conceded',
-  strength_diff: 'Strength Index',
-  elo_diff:      'ELO Rating',
-  neutral:       'Neutral Venue',
+  form_diff:          'Recent Form',
+  scored_diff:        'Goals Scored',
+  conceded_diff:      'Goals Conceded',
+  strength_diff:      'Strength Index',
+  elo_diff:           'ELO Rating',
+  market_value_diff:  'Market Value',
+  neutral:            'Neutral Venue',
 };
 
 /**
@@ -101,8 +105,10 @@ const FEATURE_LABELS = {
 export function explainPrediction(homeTeam, awayTeam, isNeutral, model) {
   const home    = model.teams[homeTeam] || DEFAULT_STATS;
   const away    = model.teams[awayTeam] || DEFAULT_STATS;
-  const homeElo = (model.teams[homeTeam] || {}).elo ?? 1500;
-  const awayElo = (model.teams[awayTeam] || {}).elo ?? 1500;
+  const homeElo = (model.teams[homeTeam] || {}).elo          ?? 1500;
+  const awayElo = (model.teams[awayTeam] || {}).elo          ?? 1500;
+  const homeMV  = (model.teams[homeTeam] || {}).market_value ?? 0;
+  const awayMV  = (model.teams[awayTeam] || {}).market_value ?? 0;
 
   const raw = [
     home.form     - away.form,
@@ -110,6 +116,7 @@ export function explainPrediction(homeTeam, awayTeam, isNeutral, model) {
     home.conceded - away.conceded,
     home.strength - away.strength,
     homeElo       - awayElo,
+    homeMV        - awayMV,
     isNeutral ? 1 : 0,
   ];
 
