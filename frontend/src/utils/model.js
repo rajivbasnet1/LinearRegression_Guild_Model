@@ -28,14 +28,18 @@ export function predictGoalDiff(homeTeam, awayTeam, isNeutral, model) {
   const home = model.teams[homeTeam] || DEFAULT_STATS;
   const away = model.teams[awayTeam] || DEFAULT_STATS;
 
+  const homeElo = (model.teams[homeTeam] || {}).elo ?? 1500;
+  const awayElo = (model.teams[awayTeam] || {}).elo ?? 1500;
+
   // Raw feature vector: difference between home and away team stats
-  // Order matches training: [form_diff, scored_diff, conceded_diff, strength_diff, neutral]
+  // Order matches training: [form_diff, scored_diff, conceded_diff, strength_diff, elo_diff, neutral]
   const raw = [
-    home.form     - away.form,       // form_diff:      win-rate advantage
-    home.scored   - away.scored,     // scored_diff:    attacking edge
-    home.conceded - away.conceded,   // conceded_diff:  defensive edge (higher = concedes more)
-    home.strength - away.strength,   // strength_diff:  overall goal-diff edge
-    isNeutral ? 1 : 0,               // neutral:        removes home-field advantage
+    home.form     - away.form,       // form_diff
+    home.scored   - away.scored,     // scored_diff
+    home.conceded - away.conceded,   // conceded_diff
+    home.strength - away.strength,   // strength_diff
+    homeElo       - awayElo,         // elo_diff
+    isNeutral ? 1 : 0,               // neutral
   ];
 
   // Apply StandardScaler: (x - mean) / scale
@@ -76,4 +80,44 @@ export function gaussianRandom(mean = 0, std = 1) {
   const u2 = Math.random();
   const z  = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   return mean + std * z;
+}
+
+const FEATURE_LABELS = {
+  form_diff:     'Recent Form',
+  scored_diff:   'Goals Scored',
+  conceded_diff: 'Goals Conceded',
+  strength_diff: 'Strength Index',
+  elo_diff:      'ELO Rating',
+  neutral:       'Neutral Venue',
+};
+
+/**
+ * Returns per-feature contributions for a prediction, sorted by absolute impact.
+ * contribution_i = scaled_feature_i * coef_i
+ * Sum of all contributions + intercept === predictGoalDiff(...)
+ *
+ * @returns {Array<{feature, label, contribution}>}
+ */
+export function explainPrediction(homeTeam, awayTeam, isNeutral, model) {
+  const home    = model.teams[homeTeam] || DEFAULT_STATS;
+  const away    = model.teams[awayTeam] || DEFAULT_STATS;
+  const homeElo = (model.teams[homeTeam] || {}).elo ?? 1500;
+  const awayElo = (model.teams[awayTeam] || {}).elo ?? 1500;
+
+  const raw = [
+    home.form     - away.form,
+    home.scored   - away.scored,
+    home.conceded - away.conceded,
+    home.strength - away.strength,
+    homeElo       - awayElo,
+    isNeutral ? 1 : 0,
+  ];
+
+  return model.features
+    .map((feat, i) => {
+      const scaled       = (raw[i] - model.scaling.mean[i]) / model.scaling.scale[i];
+      const contribution = scaled * model.coef[i];
+      return { feature: feat, label: FEATURE_LABELS[feat] || feat, contribution };
+    })
+    .sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
 }
