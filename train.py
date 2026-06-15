@@ -160,51 +160,54 @@ for idx, match in df.iterrows():
     home_elo = elo_ratings[home]
     away_elo = elo_ratings[away]
 
-    # ── Compute stats BEFORE this match (using only past history) ──────────────
+    is_friendly = 'friendly' in str(match["tournament"]).lower()
+
+    # ── Compute stats BEFORE this match (using only past competitive history) ──
     home_stats = rolling_stats(team_history[home])
     away_stats = rolling_stats(team_history[away])
 
-    # ── Feature vector: difference (home − away) for each stat ────────────────
-    #  A positive feature_diff means the home team has an edge on that stat.
-    rows.append({
-        "date"           : match["date"],
-        "home_team"      : home,
-        "away_team"      : away,
+    if not is_friendly:
+        # ── Feature vector: difference (home − away) for each stat ────────────────
+        #  A positive feature_diff means the home team has an edge on that stat.
+        rows.append({
+            "date"           : match["date"],
+            "home_team"      : home,
+            "away_team"      : away,
 
-        # Features
-        "form_diff"      : home_stats["form"]     - away_stats["form"],
-        "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
-        "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
-        "strength_diff"  : home_stats["strength"] - away_stats["strength"],
-        "elo_diff"          : home_elo - away_elo,
-        "market_value_diff" : market_value_lookup.get(home, 0.0) - market_value_lookup.get(away, 0.0),
-        # neutral = 1 means the match is played on neutral ground (no home advantage)
-        "neutral"           : int(match["neutral"]),
+            # Features
+            "form_diff"      : home_stats["form"]     - away_stats["form"],
+            "scored_diff"    : home_stats["scored"]   - away_stats["scored"],
+            "conceded_diff"  : home_stats["conceded"] - away_stats["conceded"],
+            "strength_diff"  : home_stats["strength"] - away_stats["strength"],
+            "elo_diff"          : home_elo - away_elo,
+            "market_value_diff" : market_value_lookup.get(home, 0.0) - market_value_lookup.get(away, 0.0),
+            # neutral = 1 means the match is played on neutral ground (no home advantage)
+            "neutral"           : int(match["neutral"]),
 
-        # Target: goal difference (what we predict)
-        "goal_diff"      : int(match["home_score"]) - int(match["away_score"]),
+            # Target: goal difference (what we predict)
+            "goal_diff"      : int(match["home_score"]) - int(match["away_score"]),
 
-        # Keep raw scores for reference
-        "home_score"     : match["home_score"],
-        "away_score"     : match["away_score"],
-    })
+            # Keep raw scores for reference
+            "home_score"     : match["home_score"],
+            "away_score"     : match["away_score"],
+        })
 
-    # ── NOW update history with this match result ──────────────────────────────
-    #  We update AFTER computing features — this is the leakage guard.
-    home_result = dict(
-        scored   = match["home_score"],
-        conceded = match["away_score"],
-        won      = 1 if match["home_score"] > match["away_score"] else 0,
-    )
-    away_result = dict(
-        scored   = match["away_score"],
-        conceded = match["home_score"],
-        won      = 1 if match["away_score"] > match["home_score"] else 0,
-    )
-    team_history[home].append(home_result)
-    team_history[away].append(away_result)
+        # ── NOW update history with this match result ──────────────────────────────
+        #  We update AFTER computing features — this is the leakage guard.
+        home_result = dict(
+            scored   = match["home_score"],
+            conceded = match["away_score"],
+            won      = 1 if match["home_score"] > match["away_score"] else 0,
+        )
+        away_result = dict(
+            scored   = match["away_score"],
+            conceded = match["home_score"],
+            won      = 1 if match["away_score"] > match["home_score"] else 0,
+        )
+        team_history[home].append(home_result)
+        team_history[away].append(away_result)
 
-    # Update ELOs AFTER recording features (leakage guard)
+    # Update ELOs AFTER recording features (leakage guard) - runs for ALL matches
     k = _k_factor(match["tournament"])
     elo_ratings[home], elo_ratings[away] = _elo_update(
         home_elo, away_elo,
