@@ -6,7 +6,7 @@ A machine learning project that predicts match outcomes and simulates the entire
 
 > **Model constraint:** `sklearn.linear_model.LinearRegression` only. No classifiers, no logistic regression, no neural networks.
 
-**Live demo:** [worldcuplinear-hludrozg0-r4j1vs-projects.vercel.app](https://worldcuplinear-hludrozg0-r4j1vs-projects.vercel.app/)
+**Live demo:** [worldcuplinearml.vercel.app](worldcuplinearml.vercel.app)
 
 ---
 
