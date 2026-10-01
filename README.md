@@ -1,165 +1,171 @@
-# FIFA World Cup 2026 — Linear Regression Predictor
+﻿# FIFA World Cup 2026 — Linear Regression Predictor
 
-![Cover](img/cover.png)
+![FIFA World Cup predictor cover](img/cover.png)
 
-A machine learning project that predicts match outcomes and simulates the entire 2026 FIFA World Cup bracket using **linear regression**. All predictions run in the browser from saved model coefficients — no backend, no database.
+A machine learning project that predicts match goal differences and simulates a 48-team World Cup tournament using **linear regression**. Training runs in Python; predictions and simulations run entirely in the browser from saved coefficients. No backend or database is required.
 
-> **Model constraint:** `sklearn.linear_model.LinearRegression` only. No classifiers, no logistic regression, no neural networks.
+> **Model constraint:** `sklearn.linear_model.LinearRegression` only. No classifiers, logistic regression, or neural networks.
 
 **Live demo:** [worldcuplinearml.vercel.app](https://worldcuplinearml.vercel.app/)
 
----
+## Prediction Results
+
+The project's reported predictions selected **Spain as champion**, Spain and Argentina as finalists, and Spain, Argentina, England, and France as semifinalists. These selections match the tournament outcomes in [FIFA's final standings](https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/articles/final-tournament-standings).
+
+| Reported prediction rank | Team | Tournament finish |
+|---|---|---|
+| 1 | <img src="https://flagcdn.com/w40/es.png" width="24" alt="Spain flag"> **Spain** | **Champion** |
+| 2 | <img src="https://flagcdn.com/w40/ar.png" width="24" alt="Argentina flag"> Argentina | Runner-up |
+| 3 | <img src="https://flagcdn.com/w40/gb-eng.png" width="24" alt="England flag"> England | Third place |
+| 4 | <img src="https://flagcdn.com/w40/fr.png" width="24" alt="France flag"> France | Fourth place |
+
+These are project-reported selections, separate from the held-out metrics below. Exact simulation percentages and a dated pre-tournament prediction snapshot are not included here. Fresh simulation runs can produce different rankings because they use random sampling.
 
 ## What It Does
 
 | Feature | Description |
 |---|---|
-| **Match Predictor** | Pick any two teams → predicted goal difference, scoreline, and winner |
-| **Bracket Simulator** | Manual 2026 WC bracket with model-powered winner predictions |
-| **Tournament Sim** | 10,000 Monte Carlo simulations → champion probability per team |
-| **Coefficient Chart** | Which features drive the model most |
-| **Accuracy Chart** | Predicted vs actual goal differences on test data |
-
----
+| **Match Predictor** | Select two teams and a venue setting to predict goal difference, a derived scoreline, and the likely winner |
+| **Bracket Simulator** | Build a manual 2026 bracket with model-powered winner predictions |
+| **Tournament Simulation** | Estimate champion probabilities with 1,000, 5,000, 10,000, or 25,000 Monte Carlo runs |
+| **Coefficient Chart** | Inspect coefficients for the seven standardized features |
+| **Accuracy Chart** | Compare predicted and actual goal differences on the test set |
 
 ## How Linear Regression Is Used
 
-### The Core Idea
+### Predict a margin, then derive a result
 
-Linear regression predicts a **continuous number** — the goal difference (home goals minus away goals). The sign of that number determines the winner:
+The training target is a continuous number:
 
-```
-goal_diff = intercept + β₁·form_diff + β₂·scored_diff + ... + β₇·neutral
-
-goal_diff > 0  → home team wins
-goal_diff < 0  → away team wins
-goal_diff ≈ 0  → draw
+```text
+goal_diff = home_score - away_score
+prediction = intercept + Σ(coefficient × standardized_feature)
 ```
 
-This is a regression problem, not a classification problem. We never directly predict win/draw/loss — we predict a number and derive the result. This preserves information (a 3–0 win is treated differently from a 1–0 win) and makes the model more interpretable.
+A positive prediction favours the home team; a negative prediction favours the away team. The Match Predictor displays a draw for predictions between −0.05 and +0.05 goals, inclusive. This display rule does not turn the trained model into a classifier.
 
-### Why Linear Regression for Football?
+The displayed scoreline is a heuristic derived from the margin, using a baseline of 1.2 goals per team, rounding, and a lower bound of zero. It is not a separately trained score prediction and can show a draw even when the predicted margin favours one team.
 
-- **Interpretable** — each feature has a coefficient; you can see exactly why the model favours one team
-- **No overfitting risk** with 7 features and 23,000+ training rows
-- **Coefficients are stable** — the model learns a consistent relationship between team quality and goal margin
-- **Honest** — linear regression does not pretend to know more than it does; uncertainty is visible in the residuals
+Linear regression provides a small, inspectable model that is easy to reproduce in JavaScript. It can still overfit or miss nonlinear relationships. Coefficients describe associations, not causal effects, and correlated features can make individual coefficients difficult to interpret.
 
-### The Math (Reproduced in JavaScript)
+### Browser inference
 
-After training in Python with `sklearn`, the coefficients and scaler parameters are saved to `model.json`. The browser then reproduces the exact same prediction:
+Training exports the coefficients, intercept, scaler parameters, and team snapshots to `model.json`. The browser applies the same calculation:
 
 ```javascript
-// 1. Build raw feature differences (home − away)
+// Feature order must match model.features.
 const raw = [form_diff, scored_diff, conceded_diff,
              strength_diff, elo_diff, market_value_diff, neutral];
 
-// 2. Apply StandardScaler: (x − mean) / scale
-const scaled = raw.map((x, i) => (x - mean[i]) / scale[i]);
+const scaled = raw.map(
+  (x, i) => (x - model.scaling.mean[i]) / model.scaling.scale[i]
+);
 
-// 3. Linear combination
-const goalDiff = intercept + scaled.reduce((s, x, i) => s + x * coef[i], 0);
+const goalDiff = model.intercept + scaled.reduce(
+  (sum, x, i) => sum + x * model.coef[i], 0
+);
 ```
 
-No server required — the model lives entirely in `model.json`.
+See [train.py](train.py) and [frontend/src/utils/model.js](frontend/src/utils/model.js).
 
----
+## Features and Training Data
 
-## Features (7 total)
+The first six features are **home minus away** differences. `neutral` is a venue indicator. A positive `conceded_diff` means the home team has conceded more goals, which is generally a disadvantage.
 
-All features are computed as **home team minus away team** so a positive value always means a home advantage on that stat.
-
-| Feature | How It's Computed | Why It Matters |
-|---|---|---|
-| `form_diff` | Win rate over last 10 competitive matches | Recent momentum |
-| `scored_diff` | Avg goals scored per match (last 10) | Attacking output |
-| `conceded_diff` | Avg goals conceded per match (last 10) | Defensive quality |
-| `strength_diff` | Avg goal difference per match (last 10) | Overall dominance |
-| `elo_diff` | ELO rating difference (tournament-weighted K-factor) | Historical strength |
-| `market_value_diff` | Squad market value difference (€M, Transfermarkt) | Squad depth/quality |
-| `neutral` | 1 = neutral venue, 0 = home ground | Home field advantage |
-
-### No Data Leakage
-
-Rolling windows use **only past matches** — for each match, features are computed from the team's history up to (but not including) that match. ELO ratings and rolling stats are updated **after** each match is processed.
-
-### Data Scope
-
-- **Source:** [Kaggle — International Football Results 1872–present](https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017)
-- **Rows used:** Post-2000 only (25,351 matches → 23,418 after warm-up drop)
-- **Pre-2000 data excluded:** Modern football (squad rotation, pressing, fitness science) is structurally different from earlier eras
-- **Split:** Chronological 80/20 — first 80% of dates = train, last 20% = test. No shuffle.
-
-### ELO System
-
-ELO ratings are updated after every match using a tournament-weighted K-factor:
-
-| Tournament type | K-factor |
+| Feature | Calculation |
 |---|---|
-| FIFA World Cup, EURO, Copa América, AFCON, AFC Asian Cup | 60 |
-| Qualifying matches | 40 |
-| Friendlies | 20 |
+| `form_diff` | Difference in weighted win rates over each team's last 10 matches |
+| `scored_diff` | Difference in weighted average goals scored over the same window |
+| `conceded_diff` | Difference in weighted average goals conceded |
+| `strength_diff` | Difference in weighted average goal margins |
+| `elo_diff` | Difference in Elo ratings before the match |
+| `market_value_diff` | Difference in static squad market values, in € millions |
+| `neutral` | 1 for a neutral venue; 0 otherwise |
 
-Higher K = ratings update faster after major results.
+### Rolling statistics
 
----
+Recent-match weighting and friendly downweighting are already implemented:
 
-## Model Metrics
+- Each window contains the last **10 matches**, including friendlies.
+- The most recent **3 matches receive double weight**.
+- Friendly weights are multiplied by **0.25**.
+- Weighted averages divide by the sum of the resulting weights.
+- Matches are dropped from the feature table if either team lacks 10 prior matches.
 
-Evaluated on the held-out test set (2020–2026, ~4,600 matches):
+Features and Elo ratings are captured before processing each match result. Histories and ratings are updated afterward. `StandardScaler` is fitted only on the training partition.
+
+### Data and evaluation split
+
+- **Results source:** [International Football Results — Kaggle](https://www.kaggle.com/datasets/martj42/international-football-results-from-1872-to-2017).
+- **Scope:** Matches from 2000 onward with non-missing scores.
+- **Market values:** [data/market_values.csv](data/market_values.csv), a static squad-value lookup attributed to Transfermarkt; missing values default to zero.
+- **Split:** Chronological, using the 80th-percentile match date as the cutoff. Matches on the same date stay in the same partition; there is no shuffle.
+- **Training:** Includes competitive matches and friendlies.
+- **Evaluation:** Uses only competitive matches from the later partition.
+
+Dataset counts and date ranges depend on the downloaded CSV; `train.py` prints them when run.
+
+### Elo updates
+
+Every team starts at 1500. Tournament-name matching chooses the update factor in this order:
+
+| First matching rule | K-factor |
+|---|---|
+| Name contains `fifa world cup`, `uefa european`, `copa america`, `africa cup of nations`, or `afc asian cup` | 60 |
+| Otherwise, name contains `qualif` | 40 |
+| All other names, including friendlies | 20 |
+
+Because major-tournament names are checked first, a qualifier containing one of those names also receives K = 60.
+
+## Saved Model Metrics
+
+The checked-in [model.json](model.json) reports these results on **3,397 competitive test matches**:
 
 | Metric | Value |
 |---|---|
-| MAE | 1.36 goals |
-| RMSE | 1.77 goals |
-| **Directional accuracy** | **60.5%** |
-| Residual std | 1.77 goals |
+| MAE | 1.3566 goals |
+| RMSE | 1.7662 goals |
+| Directional accuracy | 60.49% |
+| Residual standard deviation | 1.7657 goals |
 
-**Directional accuracy** = how often `sign(predicted_diff) == sign(actual_diff)`. This is the most meaningful metric — it measures whether the model picks the right winner.
+**Directional accuracy** is the fraction of matches where `sign(predicted_diff) == sign(actual_diff)`. This uses the raw prediction: an actual draw counts as correct only when the prediction is exactly zero. It differs from the Match Predictor's ±0.05 draw threshold, so it should be read alongside MAE and RMSE.
 
-Football is inherently noisy. A directional accuracy of 60.5% is realistic and honest — even professional tipsters rarely exceed 65% over a large sample.
-
----
+These values describe the saved model and its test partition, not guaranteed performance on future matches or calibrated tournament-winning probabilities.
 
 ## Monte Carlo Simulation
 
-The tournament simulator runs 10,000 full World Cup simulations:
+The default run performs **10,000 simulations**:
 
-1. **Group stage** — each of 12 groups plays round-robin (6 matches per group)
-2. **Advancement** — top 2 from each group (24) + 8 best 3rd-place teams = 32
-3. **Knockout** — single-elimination bracket (R32 → R16 → QF → SF → Final)
+1. Play six round-robin matches in each of 12 four-team groups.
+2. Advance the top two teams per group and the eight best third-place teams.
+3. Shuffle the 32 qualifiers and play single-elimination rounds through the final.
+4. Divide each team's champion count by the number of simulations to estimate its title probability.
 
-Each simulated match adds Gaussian noise to the linear regression prediction:
+Each simulated match adds Gaussian noise to the regression margin:
 
 ```javascript
-noisyDiff = predictGoalDiff(teamA, teamB) + gaussianRandom(0, residual_std)
+const sigma = model.metrics?.residual_std ?? 1.98;
+const noisyDiff = predictGoalDiff(teamA, teamB, true, model)
+                + gaussianRandom(0, sigma);
 ```
 
-`residual_std = 1.77` is derived from the model's own test-set residuals — not hardcoded. This ensures upset probability is calibrated to the model's actual uncertainty.
+The saved model supplies a residual standard deviation of **1.7657**. The simulator uses 1.98 only when that metric is unavailable. Knockout margins within 0.05 goals of zero are decided by a coin flip.
 
----
+### Current limitations
+
+- **Simplified tournament rules:** Monte Carlo knockout pairings are shuffled rather than mapped to the official bracket. Group tiebreakers use points, goal difference, and goals scored.
+- **Draw handling:** Group points follow the sign of the continuous noisy margin, so exact draws are effectively absent even when the rounded scoreline is level.
+- **Neutral venues:** All simulated matches use the neutral setting, including matches involving host nations.
+- **Uncertainty:** Gaussian residual noise is an assumption. Matching its spread to test residuals does not establish probability calibration; the test set also supplies the simulation noise estimate.
+- **Historical market values:** One static squad-value snapshot is reused across historical matches. This can introduce look-ahead bias, so the complete pipeline should not be described as leakage-free.
+- **Correlated inputs:** `strength_diff` is derived from `scored_diff - conceded_diff`, making those features redundant and individual coefficient interpretations less reliable.
+- **Fixed team snapshots:** Browser predictions use exported team statistics; they do not update automatically with new results, injuries, or lineups.
 
 ## Setup
 
-### Python (model training)
+### Run the frontend
 
-```bash
-pip install -r requirements.txt
-```
-
-Place `results.csv` from Kaggle at `data/results.csv`, then:
-
-```bash
-# Windows (avoids Unicode encoding errors)
-python -X utf8 train.py
-
-# macOS / Linux
-python train.py
-```
-
-This produces `model.json` and copies it to `frontend/public/model.json`.
-
-### Frontend (React + Vite)
+With Node.js and npm installed, use the included model without retraining:
 
 ```bash
 cd frontend
@@ -167,39 +173,73 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open the local URL printed by Vite, normally `http://localhost:5173`.
 
----
+### Retrain the model
+
+From the repository root, install the Python dependencies:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Download `results.csv` from the Kaggle dataset linked above and place it at `data/results.csv` (gitignored). Then run:
+
+```bash
+# Windows: UTF-8 avoids Unicode console encoding errors.
+python -X utf8 train.py
+
+# macOS / Linux
+python train.py
+```
+
+Training runs feature engineering and model fitting, prints evaluation metrics, and writes:
+
+- `artifacts/features_preview.csv` — the generated feature table.
+- `model.json` — coefficients, scaling, team snapshots, metrics, and test predictions.
+- `frontend/public/model.json` — the model served by the frontend.
+
+### Production build
+
+From `frontend/`:
+
+```bash
+npm run build
+npm run preview
+```
+
+The static build is written to `frontend/dist/`.
 
 ## Deployment
 
-The frontend is a static Vite app — no backend needed.
+For Vercel, import the repository and use these project settings:
 
-**Vercel (recommended):**
-1. Import this repo on [vercel.com](https://vercel.com)
-2. Set **Root Directory** to `frontend`
-3. Vercel auto-detects Vite → Deploy
+| Setting | Value |
+|---|---|
+| Root directory | `frontend` |
+| Framework preset | Vite |
+| Build command | `npm run build` |
+| Output directory | `dist` |
 
-`model.json` is bundled as a static asset. All predictions run client-side.
-
----
+The exported model is served as a static asset. Retrain and redeploy to publish updated predictions.
 
 ## Project Structure
 
-```
+```text
 LinearRegression_Guild_Model/
 ├── data/
-│   ├── results.csv              ← Kaggle dataset (you provide this, gitignored)
-│   └── market_values.csv        ← Transfermarkt squad values (48 WC teams)
-├── train.py                     ← Feature engineering + model training
-├── model.json                   ← Trained model (coefficients, scaler, team snapshots)
+│   ├── results.csv              # User-provided, gitignored match data
+│   └── market_values.csv        # Static squad market values
+├── train.py                     # Feature engineering, training, evaluation
+├── model.json                   # Saved model and team snapshots
 ├── artifacts/
-│   └── features_preview.csv     ← Feature table for inspection
+│   └── features_preview.csv     # Generated feature table
+├── img/
+│   └── cover.png
 ├── frontend/
-│   ├── public/
-│   │   └── model.json           ← Copy served by Vite
+│   ├── public/model.json       # Browser-served copy of the model
 │   ├── src/
-│   │   ├── App.jsx              ← Tab layout, model loader
+│   │   ├── App.jsx
 │   │   ├── components/
 │   │   │   ├── MatchPredictor.jsx
 │   │   │   ├── CustomBracket.jsx
@@ -207,77 +247,36 @@ LinearRegression_Guild_Model/
 │   │   │   ├── CoeffChart.jsx
 │   │   │   └── ScatterPlot.jsx
 │   │   └── utils/
-│   │       ├── model.js         ← JS re-implementation of linear regression
-│   │       ├── tournament.js    ← Monte Carlo simulation engine
-│   │       └── flags.js         ← Country flag emoji lookup
+│   │       ├── model.js        # Regression inference and scoreline helpers
+│   │       ├── tournament.js   # Group definitions and Monte Carlo engine
+│   │       └── flags.js        # Country flag helpers
 │   └── package.json
 ├── docs/superpowers/
-│   ├── specs/                   ← Design documents
-│   └── plans/                   ← Implementation plans
+│   ├── specs/
+│   └── plans/
 └── requirements.txt
 ```
 
----
+## Future Improvements — Linear Regression Only
 
-## How to Improve the Model (Linear Regression Only)
+Recent-match weighting and friendly downweighting are already present. Further experiments should be evaluated on chronological validation periods, with a separate final test period:
 
-These are the highest-impact improvements that keep the hard constraint of `sklearn.linear_model.LinearRegression`. A full implementation plan is saved at `docs/superpowers/plans/2026-06-14-model-accuracy-upgrade.md`.
+1. Use historically dated squad values, or compare against a model without market values.
+2. Remove redundant features and measure whether performance and coefficient stability improve.
+3. Compare competitive-only training and rolling histories against the current friendly weighting.
+4. Compare 10-, 15-, and 20-match rolling windows.
+5. Evaluate past-only head-to-head features and selected interaction terms as additional `LinearRegression` inputs.
+6. Improve simulation fidelity with consistent draw handling, official bracket mapping, and probability-calibration checks.
 
-### 1. Filter Friendlies from Rolling Stats *(high impact)*
+Changing from `StandardScaler` to `RobustScaler` alone does not make ordinary least squares robust to outliers: both are affine feature transformations, so predictions with an intercept are generally equivalent apart from numerical effects.
 
-Currently, a team's form includes friendly matches (where managers rest key players and try new tactics). Filtering friendlies from the rolling window so only competitive results count will give cleaner, more predictive form ratings.
-
-```python
-# Only update team_history for competitive matches
-if 'friendly' not in match['tournament'].lower():
-    team_history[home].append(home_result)
-    team_history[away].append(away_result)
-```
-
-### 2. Weight Recent Matches More Heavily *(medium impact)*
-
-Equal weighting treats a match from 10 games ago the same as last week's result. Doubling the weight of the 3 most recent matches reflects that current form matters more:
-
-```python
-weights = [1.0] * 7 + [2.0, 2.0, 2.0]   # last 3 count double
-total_w = 13.0
-form = sum(m["won"] * w for m, w in zip(recent, weights)) / total_w
-```
-
-### 3. Head-to-Head Record Feature *(medium impact)*
-
-Some matchups are historically lopsided regardless of current form (e.g., Brazil vs Bolivia). Adding a `h2h_win_rate` feature from the last 5 meetings between two teams captures rivalry-specific bias that general form stats miss.
-
-### 4. Larger Rolling Window *(low-medium impact)*
-
-Increasing `WINDOW` from 10 to 15 or 20 matches reduces noise in the rolling stats, especially for teams that play infrequently. Trade-off: more warm-up rows are dropped.
-
-### 5. Feature Interactions *(low-medium impact)*
-
-Linear regression can model interaction terms by adding new engineered features. Example:
-
-```python
-"form_x_elo"   : form_diff * elo_diff,     # good form matters more for strong teams
-"home_strength" : (1 - neutral) * strength_diff,  # strength advantage only when not neutral
-```
-
-These stay within `LinearRegression` — the interactions are just new input columns.
-
-### 6. Robust Scaling *(low impact)*
-
-Replace `StandardScaler` with `RobustScaler` (uses median and IQR instead of mean and std). Less sensitive to outlier scorelines like 10–0 friendlies that skew the distribution.
-
-### 7. Filter Training to Competitive Matches Only *(investigate)*
-
-Training only on competitive matches (qualifiers, tournaments) rather than all post-2000 matches focuses the model on the type of game it's asked to predict. Friendlies are structurally different and may be adding noise to the coefficient estimates.
-
----
+The [earlier accuracy-upgrade plan](docs/superpowers/plans/2026-06-14-model-accuracy-upgrade.md) provides historical design context; some proposed changes have already been implemented or differ from the current code.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Model training | Python 3, pandas, numpy, scikit-learn |
+| Training | Python, pandas, NumPy, scikit-learn |
 | Frontend | React 18, Vite, Tailwind CSS |
 | Charts | Recharts |
-| Deployment | Vercel (static) |
+| Hosting | Vercel, static deployment |
